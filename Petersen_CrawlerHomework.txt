@@ -1,0 +1,87 @@
+##### Web Brute Force #####
+##### CNS-380/597 Advanced Cybersecurity Automation - Jonathan Petersen####
+
+'''
+During your pentest you find a website that you believe to be of high value.
+You decide to probe it to find any webpages it might be hiding and hopefullly
+return a page with that you can use to gather contact information.
+
+Write a script that will take in a list of file paths (you can use the txt
+file provided WebPath.txt) and check them against the given website.
+The script will then notify the user which link(s) were successful.
+
+You then must scrape the webpage of any directories/files that were found and
+return any phone numbers and email addresses you find on the page.
+
+NOTE: This problem is only to be done against the given URL.
+'''
+
+from requests import request
+from bs4 import BeautifulSoup
+import urllib.parse, urllib3
+import re
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+phones = []
+phone = "\(\d{3}\)\-?\d{3}\-?\d{4}"
+emails = []
+email = "\w+\@\w+\.\w{3}"
+url = 'https://www.secdaemons.org/'
+urls = [url]
+file = open('WebPath.txt', 'r')
+results = []
+fd = file.readlines()
+file.close()
+
+def crawl(target):
+
+    response = request('GET', url, verify=False)
+    emails = re.findall(email, response.text)
+    phones = re.findall(phone, response.text)
+    soup = BeautifulSoup(response.content, 'html.parser')
+    anchors = soup.find_all('a')
+    for anchor in anchors:
+        
+        try:
+            anchor = anchor.get('href')
+            link = urllib.parse.urljoin(target, anchor)
+            if url in link and link not in urls:
+                urls.append(link)
+                
+        except:
+            pass
+    
+    for u in urls:
+        for line in fd:
+            if u[-1] == '/':
+                temp = u+line
+            else: temp = u+'/'+line
+            temp = temp.replace('#', "")
+            print(temp)
+            response = request('GET', temp, verify=False)
+            print(response.status_code)
+            if response.status_code == 200:
+                results.append(temp)
+                emails2 = re.findall(email, response.text)
+                for i in emails2:
+                    emails.append(emails2[i])
+                phones2 = re.findall(phone, response.text)
+                for i in phones2:
+                    phones.append(phones2[i])
+                
+    print("Emails found: ")
+    for e in emails:
+        print(e)
+    print("Phone numbers found: ")
+    for p in phones:
+        print(p)
+    print("URLS found from dictionary: ")
+    for r in results:
+        print(r)
+    print("URLs found on page: ")
+    for u in urls:
+        print(u)
+
+
+if __name__ == "__main__":
+    crawl(url)
